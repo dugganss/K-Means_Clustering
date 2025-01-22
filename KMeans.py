@@ -48,7 +48,15 @@ class KMeans:
         print(self.__squaredEuclideanDistance(coord,self.centroids[0]))
 
         '''
-        
+        What needs to be done:
+        - iterate through each row in the dataframe
+        - create a coordinate object at each iteration and calculate euclidean distance (ed) to each centroid
+        - set the Closest_Centroid column to the id of the centroid that yields the lowest ed
+        - then iterate through all the rows in the df for each associated centroid and find the average ed to its centroid for all the data points linked to that centroid 
+        - set the centroids xyz to the average value 
+        - have if statement that breaks when previous centroid location barely changes 
+        will have to think about how to implement this properly and how you will manage the values that you need
+        probably extract some of this to other private methods declared below euclid d method
         '''
 
 
