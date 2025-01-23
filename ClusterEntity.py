@@ -1,4 +1,4 @@
-'''
+''' TODO: edit this class to support n dimensions, edit comment
 This class is used generically to represent all points in the K-Means Algorithm.
 In any case:
 - x refers to the x coordinate of the item.
