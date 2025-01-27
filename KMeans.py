@@ -21,7 +21,15 @@ class KMeans:
     '''
     '''
     TODO: 
-    - need to make elbow method find largest change in inertia and use that result
+    - get rid of elbow method and instead find the silhouette coefficient for each data point then find the average silhouette coefficient 
+    across all data points for each value of k. choose the datapoints and centroids that result in the highest average silhouette coefficient
+    
+    explanation: silhouette coefficient for each data point is b - a / max(a,b) 
+    - where a is the intra cluster distance (average distance between that datapoint and all other data points in that cluster)
+    - and b is the inter cluster distance (average distance between that datapoint and all datapoints in the nearest cluster)
+    - (and max denotes the highest out of a or b)
+    append this value to cluster entity maybe? or create a child for datapoint?
+    
     - change comments across codebase
     - find a way to set manage k so that the user can use elbow method or manually define k 
     (would be preferable if defining k was optional when instantiating and when calling run without k it uses the 
@@ -32,6 +40,8 @@ class KMeans:
         for x in range(1, 11):
             kmeans = KMeans(x, self.df)
             results |= kmeans.run()
+        #you want to find the point where k settles
+
         kWithLowestInertia = min(results, key=lambda k: results[k][0])
         print("lowest")
         print(results[kWithLowestInertia])
@@ -309,3 +319,18 @@ class KMeans:
         #print(np.mean(self.datapoints[0].dimensions, axis=0))
         #Add column to associate data entries to centroids
         #self.df['Closest_Centroid'] = None
+
+    def __silhouette_coefficient(self, results):
+        for i in range(1,11):
+            datapoints = results[i][2]
+            centroids = results[i][1]
+
+            for centroid in centroids:
+                associatedDataPointsToCurrentCentroid = []
+                for datapoint in datapoints:
+                    if (datapoint.centroid_id == centroid.centroid_id):
+                        associatedDataPointsToCurrentCentroid.append(datapoint)
+                sumDistance = 0
+                for dp in associatedDataPointsToCurrentCentroid:
+                    sumDistance += self.__squaredEuclideanDistance(dp, centroid)
+                meanIntraClusterDistance = sumDistance / len(associatedDataPointsToCurrentCentroid)
