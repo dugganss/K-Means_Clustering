@@ -1,12 +1,15 @@
+from distutils.command.clean import clean
 from random import random
 import pandas as pd
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
 from ClusterEntity import ClusterEntity
+from Datapoint import Datapoint
+
 
 class KMeans:
-    def __init__(self, k: int , df: pd.DataFrame):
+    def __init__(self, df: pd.DataFrame, k: int = None):
         self.__validateInputs(k,df)
 
         self.centroids = []
@@ -14,40 +17,31 @@ class KMeans:
         self.k = k
         self.df = df
 
+        # When K hasn't been manually set, automatically assign K
+        if(self.k == None):
+            self.k = self.findOptimalK()
+
+
         self.__setupAlgorithm()
 
     '''
     Public Methods for user interaction
     '''
-    '''
-    TODO: 
-    - get rid of elbow method and instead find the silhouette coefficient for each data point then find the average silhouette coefficient 
-    across all data points for each value of k. choose the datapoints and centroids that result in the highest average silhouette coefficient
-    
-    explanation: silhouette coefficient for each data point is b - a / max(a,b) 
-    - where a is the intra cluster distance (average distance between that datapoint and all other data points in that cluster)
-    - and b is the inter cluster distance (average distance between that datapoint and all datapoints in the nearest cluster)
-    - (and max denotes the highest out of a or b)
-    append this value to cluster entity maybe? or create a child for datapoint?
-    
-    - change comments across codebase
-    - find a way to set manage k so that the user can use elbow method or manually define k 
-    (would be preferable if defining k was optional when instantiating and when calling run without k it uses the 
-    elbow method and otherwise runs the algo without elbow)
-    '''
-    def elbow(self):
-        results = {}
-        for x in range(1, 11):
-            kmeans = KMeans(x, self.df)
-            results |= kmeans.run()
-        #you want to find the point where k settles
 
-        kWithLowestInertia = min(results, key=lambda k: results[k][0])
-        print("lowest")
-        print(results[kWithLowestInertia])
-        print("ALl")
-        for x in results:
-            print(results[x])
+    def findOptimalK(self):
+        '''
+        runs the kmeans algorithm with differing values of k
+        finds the average silhouette coefficient of each datapoint
+
+        :returns Optimal value of K
+        '''
+        silhouetteCoefficients = []
+        for x in range(2, 11):
+            kmeans = KMeans(self.df, x)
+            silhouetteCoefficients.append(self.__silhouette_coefficient(kmeans.run()))
+        optimalCoefficient = max(silhouetteCoefficients)
+        return silhouetteCoefficients.index(optimalCoefficient)+2
+
 
     def run(self):
         '''
@@ -80,6 +74,7 @@ class KMeans:
                     currentCentroidDistances[centroid.centroid_id] = squaredDistance
                     inertia += squaredDistance
 
+
                 #set the datapoint's centroid id to the id of the centroid with the shortest distance
                 datapoint.centroid_id = min(currentCentroidDistances, key=lambda distance: currentCentroidDistances[distance])
 
@@ -98,9 +93,6 @@ class KMeans:
                     for i in range(len(centroid.dimensions)):
                         centroid.dimensions[i] = sum(dp.dimensions[i] for dp in associatedDataPointsToCurrentCentroid) / len(associatedDataPointsToCurrentCentroid)
 
-            #print("data points with closest associated centroids:")
-            #for i in range(len(self.datapoints)):
-            #    print(f"x: {self.datapoints[i].x}, y: {self.datapoints[i].y}, z: {self.datapoints[i].z}, centroid id: {self.datapoints[i].centroid_id}")
             '''
             Convergence Check
             uses numpy operations to count how many previousCentroids dimensions are the same as the current centroids dimensions
@@ -110,19 +102,18 @@ class KMeans:
                 isSame = previousCentroids[i].dimensions == self.centroids[i].dimensions
                 if(np.all(isSame)):
                     counter += 1
-
-
-
-            #print("self.centroids")
-            #for i in range(len(self.centroids)):
-            #    print(f"centroid dimensions: {self.centroids[i].dimensions}, centroid id: {self.centroids[i].centroid_id}")
-
-            #print("Previouscentroids")
-            #for i in range(len(previousCentroids)):
-            #    print(f"x: {previousCentroids[i].x}, y: {previousCentroids[i].y}, z: {previousCentroids[i].z}, centroid id: {previousCentroids[i].centroid_id}")
-
+            '''
+            Successful Completion of Algorithm
+            When convergence has occurred, mean intra/inter cluster distance is calculated for each datapoint and 
+            the results are returned
+            '''
             if(counter == self.k):
-                results = {self.k: [inertia, self.centroids, self.datapoints]}
+
+                self.__calculate_mean_intra_cluster_distance()
+
+                self.__calculate_mean_inter_cluster_distance()
+
+                results = {self.k: [inertia, copy.deepcopy(self.centroids), copy.deepcopy(self.datapoints)]}
                 break
         return results
 
@@ -237,49 +228,38 @@ class KMeans:
     Private Methods for internal functionality
     '''
 
-    def __squaredEuclideanDistance(self, a: ClusterEntity,b: ClusterEntity):
+    def __squaredEuclideanDistance(self, a: ClusterEntity, b: ClusterEntity):
         '''
-            This method calculates the Euclidean Distance (ED) between a data point and a centroid
+            This method calculates the Squared Euclidean Distance (S/ED) between a data point and a centroid
              in both 2D and 3D.
 
             The distance is still squared to maximise performance of the algorithm (square root can be
-            resource intensive when constantly being performed). The exact value of ED is not necessary
-            in this algorithm. When determining the closest centroid to a data point, comparing squared ED
-            yields the same outcome as it would with true ED.
-        '''
-        '''
-        for hardcoded implementation
-        if(b.z != None):
-            #TODO: need new method to calculate ED
-            return ((a.x - b.x) **2) + ((a.y - b.y) **2) + ((a.z - b.z) **2)
-        else:
-            return ((a.x - b.x) ** 2) + ((a.y - b.y) ** 2)
+            resource intensive when constantly being performed). When determining the closest centroid
+            to a data point, comparing SED yields the same outcome as it would with true ED.
         '''
         difference = a.dimensions - b.dimensions
         return (difference**2).sum()
 
+    def __euclideanDistance(self, a: ClusterEntity, b: ClusterEntity):
+        '''
+        This method calulates the true Euclidean Distance between two datapoints/centroids.
+        This is only used when calculating Intra-Cluster Distance and Inter-Cluster distance so that
+        the outcome of the total silhouette coefficient is consistent with the known typical values
+        of it.
+        '''
+        return np.sqrt(self.__squaredEuclideanDistance(a, b))
 
 
     def __createDataPoints(self, row):
-        #create a coordinate object and append it to datapoints
-        '''
-        if(self.is3D):
-            dataPoint = ClusterEntity(row.iloc[0], row.iloc[1], row.iloc[2])
-        else:
-            dataPoint = ClusterEntity(row.iloc[0], row.iloc[1])
-        '''
-
-
-        self.datapoints.append(ClusterEntity(row))
+        #create a Datapoint object and append it to datapoints
+        self.datapoints.append(Datapoint(row))
 
     def __validateInputs(self, k , df):
         # ensures data has been inputted correctly into algorithm
-        if not isinstance(k, int):  # k type check
+        if((not isinstance(k, int)) and (k != None)):  # k type check
             raise TypeError(f"Expected k to be int, got {type(k).__name__}")
         if not isinstance(df, pd.DataFrame):  # df type check
             raise TypeError(f"Expected df to be pandas DataFrame, got {type(df).__name__}")
-        #if len(df.columns) > 3:  # df too large check
-        #    raise ValueError("Input data frame has too many dimensions, ensure data frame has 3 columns maximum")
         if len(df.columns) < 2:  # df too small check
             raise ValueError("Input data frame has too little dimensions, ensure data frame has 2 columns minimum")
 
@@ -294,43 +274,77 @@ class KMeans:
         #create k number of centroids, using random points in the existing data as starting points
         for i in range(self.k):
             randomDFRow = self.df.sample(n =1)
-            '''
-            this code is for hard coded dimensions
-            if(self.is3D):
-                newCentroid = ClusterEntity(randomDFEntry.iloc[0,0],randomDFEntry.iloc[0,1],randomDFEntry.iloc[0,2], i)
-            else:
-                newCentroid = ClusterEntity(randomDFEntry.iloc[0, 0], randomDFEntry.iloc[0, 1], None, i)
-            '''
             dimensions = []
             for j in range(randomDFRow.size):
                 dimensions.append(randomDFRow.iloc[0,j])
             self.centroids.append(ClusterEntity(dimensions, i))
-        #print("Centroids: ")
-        #for i in range(len(self.centroids)):
-        #        print(f"id: {self.centroids[i].centroid_id}, dimensions: {self.centroids[i].dimensions}")
         # code adaped from GeeksForGeeks (2024a) https://www.geeksforgeeks.org/different-ways-to-iterate-over-rows-in-pandas-dataframe/
         # apply a method to each row in the dataframe to populate datapoints
         self.df.apply(self.__createDataPoints, axis=1)
         # end of adapted code
-        #print("Data Points: ")
-        #for i in range(len(self.datapoints)):
-        #    print(f"dimensions: {self.datapoints[i].dimensions}")
-
-        #print(np.mean(self.datapoints[0].dimensions, axis=0))
-        #Add column to associate data entries to centroids
-        #self.df['Closest_Centroid'] = None
 
     def __silhouette_coefficient(self, results):
-        for i in range(1,11):
-            datapoints = results[i][2]
-            centroids = results[i][1]
+        '''
+        Explanation: the Silhouette Coefficient is a measure in the K-Means algorithm to determine the optimal value
+        of K, deriving from the expression:
 
-            for centroid in centroids:
-                associatedDataPointsToCurrentCentroid = []
-                for datapoint in datapoints:
-                    if (datapoint.centroid_id == centroid.centroid_id):
-                        associatedDataPointsToCurrentCentroid.append(datapoint)
+        s = (b - a) / max(a, b)
+
+        Where:
+        a = intra-cluster distance (or distance from a datapoint to all datapoints in its cluster)
+        b = inter-cluster distance (or distance from a datapoint to all datapoints in the neighbouring cluster)
+        s = Silhouette Coefficient
+
+        The Silhouette Coefficient is calculated for each datapoint, this method finds the average Coefficient for
+        all datapoints from a result of the K-Means algorithm.
+
+        :param results - dictionary returned from the run method
+        :return: - mean silhouette coefficient of all data points from a run of the algorithm
+        '''
+        lists = list(results.values())[0]
+        datapoints = lists[2]
+        return sum(dp.calculateSilhouetteCoefficient() for dp in datapoints) / len(datapoints)
+
+    def __calculate_mean_intra_cluster_distance(self):
+        # calculate and set the intra cluster distance for all datapoints
+        for datapoint in self.datapoints:
+            totalIntraClusterDistance = 0
+            noIntraDatapoints = 0
+            #find sum of euclidean distances between datapoints in the same centroid
+            for intraDatapoint in self.datapoints:
+                if (datapoint != intraDatapoint and datapoint.centroid_id == intraDatapoint.centroid_id):
+                    noIntraDatapoints += 1
+                    totalIntraClusterDistance += self.__euclideanDistance(datapoint, intraDatapoint)
+            #set Mean Intra Cluster Distance for each datapoint to the average distance
+            if noIntraDatapoints > 0:
+                datapoint.meanIntraClusterDistance = totalIntraClusterDistance / noIntraDatapoints
+            else:
+                datapoint.meanIntraClusterDistance = 0
+
+    def __calculate_mean_inter_cluster_distance(self):
+        # calculate and set an approximate inter cluster distance for all datapoints (based on closest centroid)
+        for centroid in self.centroids:
+            # find closest centroid to current centroid
+            localCentroids = {}
+            for interCentroid in self.centroids:
+                if (centroid != interCentroid):
+                    localCentroids[self.__euclideanDistance(centroid, interCentroid)] = interCentroid.centroid_id
+
+            lowestDistance = min(localCentroids)
+            closestCentroidID = localCentroids[lowestDistance]
+
+            #seperate datapoints depending on their associated centroid
+            datapointsInCentroid = []
+            datapointsInInterCentroid = []
+            for datapoint in self.datapoints:
+                if (datapoint.centroid_id == closestCentroidID):
+                    datapointsInInterCentroid.append(datapoint)
+                if (datapoint.centroid_id == centroid.centroid_id):
+                    datapointsInCentroid.append(datapoint)
+
+            #for each datapoint in each group, find the average distance between them and set the Mean Inter Cluster Distance
+            for datapointA in datapointsInCentroid:
                 sumDistance = 0
-                for dp in associatedDataPointsToCurrentCentroid:
-                    sumDistance += self.__squaredEuclideanDistance(dp, centroid)
-                meanIntraClusterDistance = sumDistance / len(associatedDataPointsToCurrentCentroid)
+                for datapointB in datapointsInInterCentroid:
+                    sumDistance += self.__euclideanDistance(datapointA, datapointB)
+                datapointA.meanInterClusterDistance = sumDistance / len(datapointsInInterCentroid)

@@ -6,7 +6,7 @@ import numpy as np
 df = pd.read_csv("wine-clustering.csv")
 
 #redefine dataframe containing columns to be processed by KMeans
-#df = df[[ "Alcohol", "Flavanoids", "Color_Intensity"]]
+df = df[[ "Alcohol", "Flavanoids", "Color_Intensity"]]
 
 '''
 When running the algorithm with columns of varying scale (e.g x = 0-10 and y = 0-1000),
@@ -24,13 +24,21 @@ and this is not a fault in the algorithm. (talk about this in your report)
 #})
 
 #create KMeans object, passing k and the dataframe to be processed
-kmeans = KMeans(3,df)
-
-#means.elbow()
+kmeans = KMeans(df)
 
 
-kmeans.run()
 
 
+results = kmeans.run()
+
+'''
+for key, value in results.items():
+    lists = value[2:]
+    for element in lists:
+        for a in element:
+            print(f"intra {a.meanInterClusterDistance}")
+            print(f"inter {a.meanIntraClusterDistance}")
+            print()
+'''
 #print(kmeans.run())
 kmeans.output()
