@@ -1,12 +1,11 @@
-from distutils.command.clean import clean
-from random import random
 import pandas as pd
 import numpy as np
 import copy
 import matplotlib.pyplot as plt
+
 from ClusterEntity import ClusterEntity
 from Datapoint import Datapoint
-
+#TODO: consider changing the output so that the user doesnt have to get information about datapoints and centroids by calling the attributes from the objects
 
 class KMeans:
     def __init__(self, df: pd.DataFrame, k: int = None):
@@ -16,6 +15,8 @@ class KMeans:
         self.datapoints = []
         self.k = k
         self.df = df
+        self.inertia = 0
+        self.iterations = 0
 
         # When K hasn't been manually set, automatically assign K
         if(self.k == None):
@@ -57,22 +58,22 @@ class KMeans:
         is not altered when the objects contained within self.centroids are changed (objects are copied by reference by default)
         '''
         previousCentroids = []
-        results = {}
-        MAX_ITERATIONS = 30
+        results = []
+        MAX_ITERATIONS = 100
         for x in range(MAX_ITERATIONS):
             previousCentroids = copy.deepcopy(self.centroids)
             '''
             This loop is responsible for calculating the squared Euclidean Distance between all data points and all centroids.
             For each data point, it calculates the distance to all centroids and links itself to the centroid closest to it.
             '''
-            inertia = 0
+            self.inertia = 0
             for datapoint in self.datapoints:
                 currentCentroidDistances = {}
                 for centroid in self.centroids:
                     #create a key value pair, linking the current centroid id to the distance from the current data point
                     squaredDistance = self.__squaredEuclideanDistance(datapoint, centroid)
                     currentCentroidDistances[centroid.centroid_id] = squaredDistance
-                    inertia += squaredDistance
+                    self.inertia += squaredDistance
 
 
                 #set the datapoint's centroid id to the id of the centroid with the shortest distance
@@ -112,13 +113,29 @@ class KMeans:
                 self.__calculate_mean_intra_cluster_distance()
 
                 self.__calculate_mean_inter_cluster_distance()
+                self.iterations = x
 
-                results = {self.k: [inertia, copy.deepcopy(self.centroids), copy.deepcopy(self.datapoints)]}
-                break
-        return results
+                results = [copy.deepcopy(self.k), copy.deepcopy(self.iterations), copy.deepcopy(self.inertia), copy.deepcopy(self.centroids), copy.deepcopy(self.datapoints)]
+                return results
+        raise ValueError("Centroids never converged, maximum iterations reached")
+
+    def outputToConsole(self):
+        print("\nAll Data Points:")
+        counter = 0
+        for datapoint in self.datapoints:
+            counter += 1
+            print(f"No. {counter}- dimensions:{datapoint.dimensions}\n"
+                  f"         associated centroid: {datapoint.centroid_id}\n")
+                #  f"         silhouette coefficient: {datapoint.silhouetteCoefficient}")
+        print("\nAll Centroids:")
+        for centroid in self.centroids:
+            print(f"No: {centroid.centroid_id}\n   dimensions:{centroid.dimensions}")
+        print(f"\nNumber of Centroids (K): {self.k}")
+        print(f"Number of Iterations: {self.iterations}")
+        print(f"Total Inertia: {self.inertia}")
 
 #TODO: implement this method yourself, dont have it as a visualisation in a graph, make it output the necessary data so that someone can visualise it in a graph themselves
-    def output(self):
+    def test(self):
         '''
         Temporary use of ChatGPT code to visualise the algorithm in a graph - NOT MY CODE AND WONT BE USED IN PROJECT
         '''
@@ -273,7 +290,7 @@ class KMeans:
     def __setupAlgorithm(self):
         #create k number of centroids, using random points in the existing data as starting points
         for i in range(self.k):
-            randomDFRow = self.df.sample(n =1)
+            randomDFRow = self.df.sample(n =1, random_state=20)
             dimensions = []
             for j in range(randomDFRow.size):
                 dimensions.append(randomDFRow.iloc[0,j])
@@ -301,8 +318,7 @@ class KMeans:
         :param results - dictionary returned from the run method
         :return: - mean silhouette coefficient of all data points from a run of the algorithm
         '''
-        lists = list(results.values())[0]
-        datapoints = lists[2]
+        datapoints = results[4]
         return sum(dp.calculateSilhouetteCoefficient() for dp in datapoints) / len(datapoints)
 
     def __calculate_mean_intra_cluster_distance(self):

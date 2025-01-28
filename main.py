@@ -23,22 +23,14 @@ and this is not a fault in the algorithm. (talk about this in your report)
 #    'Score': [80, 85, 78]
 #})
 
-#create KMeans object, passing k and the dataframe to be processed
+#create KMeans object, passing the dataframe and optionally a value for K (will be automatically determined otherwise)
 kmeans = KMeans(df)
 
-
-
-
+#run the algorithm, saving the results to a variable
 results = kmeans.run()
 
-'''
-for key, value in results.items():
-    lists = value[2:]
-    for element in lists:
-        for a in element:
-            print(f"intra {a.meanInterClusterDistance}")
-            print(f"inter {a.meanIntraClusterDistance}")
-            print()
-'''
-#print(kmeans.run())
-kmeans.output()
+#optionally output the results in a readable format
+kmeans.outputToConsole()
+print(results)
+
+#kmeans.test()

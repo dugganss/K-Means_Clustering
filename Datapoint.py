@@ -32,8 +32,7 @@ class Datapoint(ClusterEntity):
         super().__init__(dimensions, centroid_id )
         self.meanIntraClusterDistance = 0
         self.meanInterClusterDistance = 0
-        self.silhouetteCoefficient = 0
+
 
     def calculateSilhouetteCoefficient(self):
-        self.silhouetteCoefficient =  (self.meanInterClusterDistance - self.meanIntraClusterDistance)/ max(self.meanIntraClusterDistance,self.meanInterClusterDistance)
-        return self.silhouetteCoefficient
+        return (self.meanInterClusterDistance - self.meanIntraClusterDistance)/ max(self.meanIntraClusterDistance,self.meanInterClusterDistance)
