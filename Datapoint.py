@@ -35,4 +35,6 @@ class Datapoint(ClusterEntity):
 
 
     def calculateSilhouetteCoefficient(self):
+        #formula adapted from GeeksForGeeks (2019)
         return (self.meanInterClusterDistance - self.meanIntraClusterDistance)/ max(self.meanIntraClusterDistance,self.meanInterClusterDistance)
+        #end of adapted formula
